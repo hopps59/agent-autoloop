@@ -2,7 +2,8 @@
 // a retry starts a new conversation instead of going on, an error or a turn that never finished counts as an answer, a
 // program's warning is taken for its answer, a finished Claude run printed as one JSON array is read as a failure, the
 // session isn't picked out, a command line's placeholder isn't filled in, or a background Codex run assumes it inherited
-// an application's browser connection. A turn that got going and then broke, or was killed before it finished, doesn't
+// an application's browser connection. A transient Codex transport error survives a completed turn and loses its answer.
+// A turn that got going and then broke, or was killed before it finished, doesn't
 // say it started, so the worker runs its prompt again; one that never got going says it did, so the worker doesn't start a
 // new session for it; what Claude said before a background task ended is taken for its answer, or starts the wait for a
 // turn that won't exit; the raw messages of a broken Claude run become the reason it failed. A receipt an Agent wrote
@@ -319,6 +320,25 @@ test("Codex: only a finished turn's last message is its answer", () => {
   });
   assert.equal(codex.read("", 1, "cannot resume: active writer").error, "cannot resume: active writer");
   assert.equal(codex.link!("t"), "codex://threads/t");
+});
+
+test("Codex: a completed turn clears transient transport errors", () => {
+  const output = [
+    { type: "thread.started", thread_id: "t" },
+    { type: "turn.started" },
+    { type: "error", message: "Reconnecting... 5/5 (request timed out)" },
+    { type: "item.completed", item: { type: "agent_message", text: "问了一个问题。" } },
+    { type: "turn.completed", usage: { input_tokens: 10, output_tokens: 2 } },
+  ]
+    .map((event) => JSON.stringify(event))
+    .join("\n");
+  assert.deepEqual(codex.read(output, 0, ""), {
+    session: "t",
+    started: true,
+    text: "问了一个问题。",
+    finished: true,
+    sessionUsage: { input: 10, output: 2, cached: 0 },
+  });
 });
 
 test("Codex: a turn that got going says so, however it ended; one that never did doesn't", () => {
