@@ -158,6 +158,8 @@ GET /v1/events/34                  Authorization: Bearer <来源的密钥>
 - **别人家的 Webhook**：`POST /v1/in/<来源>`。来源配了 `adapter`，就交给 `plugins/<adapter>/source.ts` 里的函数验签、翻译成事件，它只翻译，不发请求。验签用的秘密放在 `secrets.env` 的 `AGENT_AUTOLOOP_SECRET_<来源>`（来源名转大写，`-` 换成 `_`，改完重启中台），不进 `rules.json`。
 - **轮询**：不用连公网，没新东西不花 Token。规则定时叫一段脚本（也是一个 Agent），脚本在回执的 `events` 里交回新事件。事件的 `id` 要稳定，读的范围可以重叠，中台会去重；脚本要在回执交出去之后才推进自己的游标，或者干脆不留游标。
 
+飞书通道可在可信 `config.json` 中另配 `sourceKey`，用同一 CLI 事件总线接收 `im.message.receive_v1`。它只把配置中的本人 `user` 发来的私聊文字转为 `mobile.task`：`id` 和 `subject` 是飞书消息编号，正文只进 `summary`、`detail`，中台仍按已有来源密钥和规则决定派活。消息先写入本机 `feishu-inbox/`，中台收下并发出确认消息后删除；中台短时不可达时重试，同一消息编号不会重复派活。回答卡片仍走原通道密钥和 `card.action.trigger`。旧配置没有 `sourceKey` 时，只收发卡片，不监听私聊。
+
 来源或 `elsewhere` 任务有话要直接告诉你（不用 Agent 处理）：
 
 ```

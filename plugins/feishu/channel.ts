@@ -4,9 +4,13 @@
 //   "channels": { "feishu": { "key": "…", "user": "ou_xxx" } } in config.json
 //   "channels": { "feishu": { "name": "飞书", "answerers": ["ou_xxx"] } } in rules.json: who may answer.
 import { execFile, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import path from "node:path";
 import type { Card, ChannelContext } from "../../host/channels.ts";
 import { eachLine } from "../../host/lines.ts";
 import { commandLine } from "../../host/command.ts";
+import { HOME } from "../../host/home.ts";
+import { mobileInbox, mobileTask } from "./mobile.ts";
 
 /** Feishu sends these values as JSON in a string, which may be empty. */
 function safeJson(text: unknown): any {
@@ -100,7 +104,7 @@ export function render(card: Card) {
   };
 }
 
-export default async function feishu({ hub, options, log, signal }: ChannelContext) {
+export default async function feishu({ hub, source, options, log, signal }: ChannelContext) {
   const program = (options.lark as string | undefined) ?? "lark-cli";
   const lark = async (args: string[], input?: string) => {
     const printed = await new Promise<string>((resolve, reject) => {
@@ -225,5 +229,68 @@ export default async function feishu({ hub, options, log, signal }: ChannelConte
     }
   }
 
-  await Promise.all([deliver(), listen()]);
+  async function receiveTasks() {
+    if (!source) return;
+    const inbox = mobileInbox(path.join(HOME, "feishu-inbox"));
+    async function drain() {
+      for (const task of inbox.pending()) {
+        try {
+          const result = await source!.event(task);
+          const accepted = result.routed?.length > 0;
+          await lark([
+            "im",
+            "+messages-send",
+            "--user-id",
+            owner,
+            "--as",
+            "bot",
+            "--idempotency-key",
+            `mobile-${createHash("sha256").update(task.id).digest("hex").slice(0, 40)}`,
+            "--text",
+            accepted
+              ? `已收到任务 #${result.event}：${task.summary}`
+              : `任务 #${result.event} 未派发：没有匹配的规则，请检查中台配置。`,
+          ]);
+          inbox.done(task.id);
+        } catch (error) {
+          log(`phone task ${task.id} pending: ${error}`);
+        }
+      }
+    }
+    let flushing: Promise<void> | null = null;
+    function flush() {
+      if (flushing) return flushing;
+      flushing = drain().finally(() => {
+        flushing = null;
+      });
+      return flushing;
+    }
+    const retry = setInterval(() => void flush().catch((error) => log(`phone inbox: ${error}`)), 10_000);
+    signal.addEventListener("abort", () => clearInterval(retry), { once: true });
+    await flush();
+    while (!signal.aborted) {
+      const consume = spawn(...commandLine([program, "event", "consume", "im.message.receive_v1", "--as", "bot"]), {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      consume.on("error", (error) => log(`the message listener couldn't run: ${error}`));
+      const stop = () => consume.kill();
+      signal.addEventListener("abort", stop);
+      eachLine(consume.stderr, log);
+      eachLine(consume.stdout, (line) => {
+        try {
+          const task = mobileTask(JSON.parse(line), owner);
+          if (!task) return;
+          inbox.save(task);
+          void flush().catch((error) => log(`phone inbox: ${error}`));
+        } catch (error) {
+          log(`phone message not saved: ${error}`);
+        }
+      });
+      await new Promise((resolve) => consume.on("close", resolve));
+      signal.removeEventListener("abort", stop);
+      if (!signal.aborted) await new Promise((resolve) => setTimeout(resolve, 10_000));
+    }
+  }
+
+  await Promise.all([deliver(), listen(), receiveTasks()]);
 }

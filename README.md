@@ -159,6 +159,8 @@ Agent 结束了这一轮，问了你一个问题。它现在不占进程、不�
 
 **实测情况：** Claude Code、Codex 和 ACP（官方 Codex ACP 适配器）跑通了多轮问答和跨进程会话续接；ZCode 跑通了提问、回答后接回原会话；飞书跑通了发送、按钮回调和卡片更新；四种 Webhook 模板只在本地模拟服务上验证过，GitLab Webhook 按官方文档的格式测试，没连过真实 GitLab。这些文字通道靠回答链接拍板，要把 `hub.publicUrl` 配成手机或电脑能打开的地址。
 
+要从手机主动派活，可按[飞书私聊派任务](examples/recipes/feishu-mobile/README.md)配置消息来源。本人私聊文字进入事件，工作目录和权限仍由规则决定；执行中的问题由飞书卡片回答，完成结果回到飞书。已在 Windows 上用真实飞书私聊验证发任务、回答卡片和接续原会话。
+
 **内置 Agent 走第三方网关。** Claude Code、Codex 要接第三方模型服务，或者启动前要先设好环境变量，写一个设好变量再启动它的小脚本，在 Agent 里写 `"program": "脚本路径"`，会话续接和用量统计照旧，见[说明](skills/agent-autoloop/SKILL.md#接一个-agent)。
 
 **其他命令行 Agent 一行接入。** 设置 `use: "command"` 并传入命令数组，`{prompt}` 作为独立参数传递，不会被当成 shell 代码执行。下面的命令整理自各家官方文档，我们还没有逐个跑过：

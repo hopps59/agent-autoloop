@@ -21,6 +21,7 @@ export type Card = {
 };
 export type ChannelContext = {
   hub: Pick<Hub, "nextCard" | "delivered" | "failed" | "answer">;
+  source?: Pick<Hub, "event">;
   options: Record<string, unknown>;
   log: (line: string) => void;
   signal: AbortSignal;

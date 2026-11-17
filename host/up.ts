@@ -47,13 +47,24 @@ async function keepRunning(say: (line: string) => void, run: () => Promise<unkno
   }
 }
 
-function keepChannelRunning(id: string, { use, key, ...options }: ChannelConfig, url: string, signal: AbortSignal) {
+function keepChannelRunning(
+  id: string,
+  { use, key, sourceKey, ...options }: ChannelConfig,
+  url: string,
+  signal: AbortSignal,
+) {
   const say = log(id);
   return keepRunning(
     say,
     async () => {
       const start = await loadChannel(use ?? id);
-      await start({ hub: hubClient(url, key), options, log: say, signal });
+      await start({
+        hub: hubClient(url, key),
+        source: typeof sourceKey === "string" ? hubClient(url, sourceKey) : undefined,
+        options,
+        log: say,
+        signal,
+      });
     },
     signal,
   );

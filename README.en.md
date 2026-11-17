@@ -161,6 +161,8 @@ Built-in plugins ship with the program and are enabled through configuration. Us
 
 **What has been tested:** Claude Code, Codex, and ACP (with the official Codex ACP adapter) have run multi-turn Q&A and session resumption across processes. ZCode has run a question, an answer, and the resumed session. Feishu has run real delivery, button callbacks, and card updates. The four webhook templates have only been checked against local mock servers, and the GitLab webhook against the payloads in its docs, not a real GitLab. These text channels answer through a link, so `hub.publicUrl` must be reachable from your phone or computer.
 
+To start work from your phone, follow the [Feishu private message recipe](examples/recipes/feishu-mobile/README.md). Your message becomes an event; trusted rules choose the working directory and permissions. A live Windows run verified task submission, card answers, and resuming the same session.
+
 **Built-in agents through another service.** To send Claude Code or Codex to a third-party model service, or to set environment variables before it starts, write a small script that sets them and starts the program, then put `"program": "/path/to/script"` on the agent. Session resumption and usage reporting still work. See the [guide](skills/agent-autoloop/SKILL.md#接一个-agent).
 
 **Other CLI agents connect in one line.** Set `use: "command"` and pass a command array; `{prompt}` is a single argument, never evaluated as shell code. These commands come from each tool's official docs, and we have not run each of them yet:

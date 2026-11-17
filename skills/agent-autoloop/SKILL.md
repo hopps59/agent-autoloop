@@ -106,6 +106,8 @@ Claude 主任务要委托 Codex 操作网页时，从 `examples/recipes/browser-
 
 同一个飞书应用的卡片点击只能有一个监听，只在一台电脑上跑。
 
+手机私聊也能派任务：给飞书通道配置 `sourceKey`（单独创建的来源密钥），在 `rules.json` 登记 `mobile` 来源并写 `mobile.task` 规则；只接受配置中 `user` 的私聊文字，消息编号用于去重，待提交消息保存在本机 `feishu-inbox/`。具体配置见 [手机私聊派任务](../../examples/recipes/feishu-mobile/README.md)。飞书应用还要订阅 `im.message.receive_v1` 并具备 `im:message.p2p_msg:readonly` 权限。
+
 **只会发文字的（钉钉、企微的群机器人，Slack、Discord 的 Webhook）**：用 `plugins/webhook/channel.ts`，`config.json` 的通道项写 `"use": "webhook"`、`"platform": "dingtalk"` 和 `"url": "已有的 Webhook 地址"`；平台也可选 `wecom`、`slack`、`discord`。别的平台只要收 JSON POST 也能接：不写 `platform`，写 `url` 和带 `{text}` 的 `body`，比如 Telegram 写 `"url": "https://api.telegram.org/bot<机器人令牌>/sendMessage"`、`"body": { "chat_id": "…", "text": "{text}" }`。`rules.json` 里写 `"links": true`，卡片链接本身就能回答；`config.json` 的 `hub.publicUrl` 要配成手机或电脑能打开的地址。
 
 **有按钮的新通道**：在 `~/.agent-autoloop/plugins/<名字>/channel.ts` 写一个，照 `plugins/feishu/channel.ts`：循环领卡片、发或改、报告；收到点击转给 `hub.answer`。协议在 `docs/protocol.md`，用别的语言写也行，只要会发 HTTP。
